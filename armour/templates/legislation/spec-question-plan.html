@@ -1,0 +1,89 @@
+{% extends "base-auth.html" %}
+{% load crispy_forms_tags static company_tags %}
+
+{% block title %}Legal Register Builder{% endblock %}
+
+{% block pagetitle %}Legal Register Builder <small>Select Plan</small>{% endblock %}
+
+{% block content %}
+
+<div class="card box">
+    <div class="row box-hero">
+        <div class="col-md-12">
+            <div class="hero-message">
+                <h2>Subscription</h2>
+                <p class="text-secondary">Subscribe to our annual plan or test for free!</p>
+                <p>Both plans include full access to Covid-19 Legislation, Guidance and Templates. Stay safe!</p>
+                <p>Documents & guidance feature is free indefinitely!</p>
+            </div>
+        </div>
+        <div class="col-md-6 col-sm-12">
+            {% if request.user.company.get_free_payments_count == 0 %}
+            <a href="{% url 'organization-start-free' %}" class="card plan-picker mr-0">
+                <div class="card-body">
+                    <h5 class="card-title">Trial version <small>Free access to 10 pieces of legislation</small></h5>
+                    <p><strong>Free access to:</strong></p>
+                    <ul>
+                        <li><strong>Non Conformance Register:</strong> record compliance issues incidents-complaints-supplier issues-audits-inspections</li>
+                        <li><strong>Reports</strong></li>
+                        <li><strong>Templates & Guidance</strong></li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    Expires after 14 days
+                </div>
+            </a>
+            {% elif request.user.company.check_free_payments_isactive %}
+                <a href="{% url 'legislation-topics' %}" class="card plan-picker mr-0">
+                <div class="card-body">
+                    <h5 class="card-title">Continue trial <small>Free access to 10 pieces of legislation</small></h5>
+                    <p><strong>Free access to:</strong></p>
+                    <ul>
+                        <li><strong>Non Conformance Register:</strong> record compliance issues incidents-complaints-supplier issues-audits-inspections</li>
+                        <li><strong>Reports</strong></li>
+                        <li><strong>Templates & Guidance</strong></li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    Expires on {{ request.user.company.check_free_payments_active.validate|date:'d.m.Y' }}
+                </div>
+            </a>
+            {% else %}
+            <div class="card plan-picker disabled mr-0">
+                <div class="card-body">
+                    <h5 class="card-title">Trial <small>Finished</small></h5>
+                    <p><strong>Free access to:</strong></p>
+                    <ul>
+                        <li><strong>Non Conformance Register:</strong> record compliance issues incidents-complaints-supplier issues-audits-inspections</li>
+                        <li><strong>Reports</strong></li>
+                        <li><strong>Templates & Guidance</strong></li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    Expired
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="col-md-6 col-sm-12">
+
+            <a href="{% url 'cc-confirm' %}" class="card plan-picker ml-0">
+                <div class="card-body">
+                    <h5 class="card-title">Full Access <small>All legislation and other requirements</small></h5>
+                    <p><strong>Access to:</strong></p>
+                    <ul>
+                        <li><strong>Non Conformance Register:</strong> record compliance issues incidents-complaints-supplier issues-audits-inspections</li>
+                        <li><strong>Reports</strong></li>
+                        <li><strong>Templates & Guidance</strong></li>
+                        <li><strong>Legal Updates</strong></li>
+                        <li><strong>Other requirements:</strong> ISO 45001, Safe T Cert, ISO 9001, ISO 14001 and more</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    Annual subscription
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock content %}

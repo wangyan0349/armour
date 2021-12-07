@@ -1,0 +1,311 @@
+{% extends "base-auth.html" %}
+{% load crispy_forms_tags static company_tags %}
+
+{% block title %}
+Reports
+{% endblock title %}
+
+{% block pagetitle %}
+Reports <small class="v-info">Legal ver. {{ object.version }}</small>
+{% endblock pagetitle %}
+
+{% block headeractions %}
+{% if newversion %}
+<a href="#updateModal" class="btn btn-primary" data-toggle="modal" data-target="#updateModal" id="updateButton">
+    <i class="fas fa-sync-alt mr-2"></i> Legal update <span class="count">{{ nectversions|safe }}</span>
+</a>
+{% endif %}
+{% endblock headeractions %}
+
+{% block modal %}
+<!-- Action Modal -->
+<div class="modal fade" id="actionModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content" id="actionModalContent">
+        </div>
+    </div>
+</div>
+{% if newversion %}
+<!-- Legal Update Modal -->
+<div class="modal fade" id="updateModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLongTitle">Legal update</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="update-info">
+                    <p class="text-danger"><strong>You have {{ nectversions|safe }} overdue legal updates!</strong></p>
+                    <p>Please consider updating your register. The eldest update:</p>
+                    <h4>{{ newversion.name }} (ver. {{ newversion.version }})</h4> <!-- tu trzeba nazwe update i ver wrzucić -->
+                    <p class="text-muted">It will take effect from {% now 'd.m.Y' %}</p>
+                </div>
+                {% if newspecq|length > 0 %}
+                <div class="questions-block">
+                    <h5>Specific Questions <small>Answer to know if the update applies to you</small></h5>
+                    {% for q in newspecq %}
+                    <div class="question-wrapper">
+                        <div class="question">
+                            {{ q.title }}
+                        </div>
+                        <div class="form-radio">
+                            <input class="form-radio-input" id="question-yes-{{ q.id|safe }}" onclick="handleUpdate()" name="question-{{ q.id|safe }}" type="radio">
+                            <label class="form-radio-label" for="question-yes-{{ q.id|safe }}">Yes</label>
+                        </div>
+                        <div class="form-radio">
+                            <input class="form-radio-input" id="question-no-{{ q.id|safe }}" onclick="handleUpdate()" name="question-{{ q.id|safe }}" type="radio">
+                            <label class="form-radio-label" for="question-no-{{ q.id|safe }}">No</label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="update-action d-none" id="update-apply-1">
+                    <p><strong>This legislation APPLIES to you</strong>, add to your register and complete review. Your open legislation process will be modified!</p>
+                    <form method="post" action="{% url 'legislation-version-update' %}"  class="non-form">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-check mr-2"></i> Update now</button>
+                        <button type="button" class="btn btn-blank" data-dismiss="modal"><i class="fas fa-times mr-2"></i> Update later</button>
+                    </form>
+                </div>
+                <div class="update-action {% if newspecq|length > 0 %}d-none{% endif %}" id="update-apply-0">
+                    <p><strong>This legislation DOES NOT APPLY to you</strong>, update your register to include today's review date. No other actions are necessary.</p>
+                    <form method="post" action="{% url 'legislation-version-update' %}"  class="non-form">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-check mr-2"></i> Update now</button>
+                        <button type="button" class="btn btn-blank" data-dismiss="modal"><i class="fas fa-times mr-2"></i> Update later</button>
+                     </form>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-blank" data-dismiss="modal"><i class="fas fa-times mr-2"></i> Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock modal %}
+
+{% block content %}
+<!-- Reports -->
+<div class="card box">
+    <h5 class="card-title w-tools">
+        Legal Reports
+        <div class="box-tools">
+            <div class="form-group">
+                <label>Select year</label>
+                <select class="form-control" name="location" id="id_location" onchange="refreshData();">
+                    <option value="">2020</option>
+                </select>
+            </div>
+        </div>
+    </h5>
+    <div class="accordion" id="my-legislation">
+        {% if open %}
+        {% with l=open %}
+        <div class="card ">
+            <div class="card-header">
+                <button class="btn btn-link text-primary collapsed" type="button" data-toggle="collapse" data-target="#ml-row-{{ forloop.counter }}" aria-expanded="true">
+                   Open legislation register from {{ open.started|date:'d/m/Y' }} <span class="v-info">v{{ open.version }}</span> <span class="addon"></span>
+                </button>
+                <div class="row-actions">
+                     <a href="{% url 'legislation-topics' %}" class="btn btn-blank-primary btn-sm ml-1"><i class="far fa-edit mr-1"></i> Continue</a>
+                    <button target="_blank" onclick="loadDeleteForm({{l.id|safe}});" data-toggle="modal" data-target="#actionModal" class="btn btn-blank-danger btn-sm ml-1"><i class="far fa-trash-alt mr-1"></i> Delete</button>
+                </div>
+            </div>
+            <div id="ml-row-{{ forloop.counter }}" class="collapse" aria-labelledby="headingOne" data-parent="#my-legislation">
+                <div class="card-body">
+                    <div class="table-responsive table-reports">
+                        <table class="table">
+                            <tbody>
+                                <tr class="row-title">
+                                    <td colspan="2">Legal Reports</td>
+                                </tr>
+                                <!--
+                                <tr>
+                                    <td>All products</td>
+                                    <td class="text-right">
+                                        <div class="row-actions">
+                                            <a target="_blank" href="{% url 'get-report-pdf' l.get_or_create_uuid %}" class="btn btn-blank-default btn-sm"><i class="far fa-file-alt mr-1"></i> Download</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                -->
+                                {%  for pos in l.get_products %}
+                                <tr>
+                                    <td>{{ pos.location.name|title }},  {{ pos.topic.name|title }}</td>
+                                    <td class="text-right">
+                                        <div class="row-actions">
+                                            <a target="_blank" href="{% url 'get-report-pdf' l.get_or_create_uuid %}?product={{ pos.id }}" class="btn btn-blank-default btn-sm"><i class="far fa-file-alt mr-1"></i> Download</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tbody>
+                                <tr class="row-title">
+                                    <td colspan="2">Legal Non Conformances</td>
+                                </tr>
+                                <!--
+                                <tr>
+                                    <td>All products</td>
+                                    <td class="text-right">
+                                        <div class="row-actions">
+                                            <a target="_blank" href="{% url 'get-report-nc-pdf' l.get_or_create_uuid 'inner' %}" class="btn btn-blank-default btn-sm"><i class="far fa-file-alt mr-1"></i> Download</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                -->
+                                {%  for pos in l.get_products %}
+                                <tr>
+                                    <td>{{ pos.location.name|title }},  {{ pos.topic.name|title }}</td>
+                                    <td class="text-right">
+                                        <div class="row-actions">
+                                            <a target="_blank" href="{% url 'get-report-nc-pdf' l.get_or_create_uuid 'inner' %}?product={{ pos.id }}" class="btn btn-blank-default btn-sm"><i class="far fa-file-alt mr-1"></i> Download</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endwith %}
+        {% endif %}
+        {% for l in object.get_finished %}
+        <div class="card">
+            <div class="card-header">
+                <button class="btn btn-link collapsed" type="button" data-toggle="collapse" data-target="#ml-row-{{ forloop.counter }}" aria-expanded="true">
+                    Legislation reports from {{ l.started|date:'d/m/Y' }} <span class="v-info">v{{ l.version }}</span> <span class="addon"></span>
+                </button>
+                <div class="row-actions">
+                    <button target="_blank" onclick="loadDeleteForm({{l.id|safe}});" data-toggle="modal" data-target="#actionModal" class="btn btn-blank-danger btn-sm ml-1"><i class="far fa-trash-alt mr-1"></i> Delete</button>
+                </div>
+            </div>
+            <div id="ml-row-{{ forloop.counter }}" class="collapse" aria-labelledby="headingOne" data-parent="#my-legislation">
+                <div class="card-body">
+                    <div class="table-responsive table-reports">
+                        <table class="table">
+                            <tbody>
+                                <tr class="row-title">
+                                    <td colspan="2">Legal Reports</td>
+                                </tr>
+                                <tr>
+                                    <td>All products</td>
+                                    <td class="text-right">
+                                        <div class="row-actions">
+                                            <a target="_blank" href="{% url 'get-report-pdf' l.get_or_create_uuid %}" class="btn btn-blank-default btn-sm"><i class="far fa-file-alt mr-1"></i> Download</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {%  for pos in l.get_products %}
+                                <tr>
+                                    <td>{{ pos.location.name|title }},  {{ pos.topic.name|title }}</td>
+                                    <td class="text-right">
+                                        <div class="row-actions">
+                                            <a target="_blank" href="{% url 'get-report-pdf' l.get_or_create_uuid %}?product={{ pos.id }}" class="btn btn-blank-default btn-sm"><i class="far fa-file-alt mr-1"></i> Download</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tbody>
+                                <tr class="row-title">
+                                    <td colspan="2">Legal Non Conformances</td>
+                                </tr>
+                                <tr>
+                                    <td>All products</td>
+                                    <td class="text-right">
+                                        <div class="row-actions">
+                                            <a target="_blank" href="{% url 'get-report-nc-pdf' l.get_or_create_uuid 'inner' %}" class="btn btn-blank-default btn-sm"><i class="far fa-file-alt mr-1"></i> Download</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {%  for pos in l.get_products %}
+                                <tr>
+                                    <td>{{ pos.location.name|title }},  {{ pos.topic.name|title }}</td>
+                                    <td class="text-right">
+                                        <div class="row-actions">
+                                            <a target="_blank" href="{% url 'get-report-nc-pdf' l.get_or_create_uuid 'inner' %}?product={{ pos.id }}" class="btn btn-blank-default btn-sm"><i class="far fa-file-alt mr-1"></i> Download</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="card box">
+    <h5 class="card-title">
+        Non Conformances
+    </h5>
+
+    <div class="table-responsive table-reports table-wrapper">
+        <table class="table">
+            <tbody>
+                <tr class="row-title">
+                    <td colspan="2">Other Non Conformances</td>
+                </tr>
+                {% for s in company.get_outer_sources %}
+                <tr>
+                    <td>{{ s.name }}</td>
+                    <td class="text-right">
+                        <div class="row-actions">
+                            <a target="_blank" href="{% url 'get-report-nc-outer-pdf' %}?source={{ s.id|safe }}" class="btn btn-blank-default btn-sm"><i class="far fa-file-alt mr-1"></i> Download</a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="2">There is no data for reports yet</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tbody>
+                <tr class="row-title">
+                    <td colspan="2">All Non Conformances</td>
+                </tr>
+                <tr>
+                    <td>All records</td>
+                    <td class="text-right">
+                        <div class="row-actions">
+                            <a target="_blank" href="{% url 'get-report-nc-outer-pdf' %}" class="btn btn-blank-default btn-sm"><i class="far fa-file-alt mr-1"></i> Download</a>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block js %}
+{{ block.super }}
+<script src="{% static 'js/jquery.form.min.js' %}"></script>
+<script src="{% static 'js/legislation.js' %}"></script>
+<script type="text/javascript">
+    var urls={
+        objdelete:"{% url 'legislation-delete' 0 %}"
+    };
+
+    $(document).ready(function() {
+
+    if(window.location.href.indexOf('#updateVersion') != -1) {
+        $('#updateModal').modal('show');
+    }
+
+});
+</script>
+{% endblock %}
